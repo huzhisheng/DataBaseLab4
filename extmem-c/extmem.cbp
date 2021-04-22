@@ -7,8 +7,8 @@
 		<Option compiler="gcc" />
 		<Build>
 			<Target title="Debug">
-				<Option output="bin\Debug\extmem" prefix_auto="1" extension_auto="1" />
-				<Option object_output="obj\Debug\" />
+				<Option output="bin/Debug/extmem" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Debug/" />
 				<Option type="1" />
 				<Option compiler="gcc" />
 				<Compiler>
@@ -16,8 +16,8 @@
 				</Compiler>
 			</Target>
 			<Target title="Release">
-				<Option output="bin\Release\extmem" prefix_auto="1" extension_auto="1" />
-				<Option object_output="obj\Release\" />
+				<Option output="bin/Release/extmem" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Release/" />
 				<Option type="1" />
 				<Option compiler="gcc" />
 				<Compiler>
@@ -31,10 +31,20 @@
 		<Compiler>
 			<Add option="-Wall" />
 		</Compiler>
+		<Unit filename="common.h" />
 		<Unit filename="extmem.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="extmem.h" />
+		<Unit filename="lab4_1.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="lab4_2.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="lab4_3.c">
+			<Option compilerVar="CC" />
+		</Unit>
 		<Unit filename="test.c">
 			<Option compilerVar="CC" />
 		</Unit>

@@ -58,20 +58,11 @@ void searchBlock(char* block_buf, int target_value){
     }
 }
 
-// 基于线性搜索的关系选择算法
-void lab4_1(){
-
-    /* Initialize the buffer */
-    if (!initBuffer(520, 64, &buf))
-    {
-        perror("Buffer Initialization Failed!\n");
-        return -1;
-    }
-
-    for(unsigned int i=1; i<=TABLE_S_MAX_BLOCK_NO; i++){
+void searchLinear(int beg_blk_no, int end_blk_no, int target){
+    for(unsigned int i=beg_blk_no; i<=end_blk_no; i++){
         char* block_buf = readBlockFromDisk(i, &buf);
         printf("读入数据块%d\n", i);
-        searchBlock(block_buf, 50);
+        searchBlock(block_buf, target);
         freeBlockInBuffer(block_buf, &buf);
     }
 
@@ -82,4 +73,17 @@ void lab4_1(){
     printf("满足选择条件的元组一共%d个\n", result_item_count);
     printf("IO读写一共%d次\n", buf.numIO);
     freeBuffer(&buf);
+}
+
+// 基于线性搜索的关系选择算法
+void lab4_1(){
+
+    /* Initialize the buffer */
+    if (!initBuffer(520, 64, &buf))
+    {
+        perror("Buffer Initialization Failed!\n");
+        return -1;
+    }
+    searchLinear(TABLE_R_MAX_BLOCK_NO+1, TABLE_S_MAX_BLOCK_NO, 50);
+    
 }

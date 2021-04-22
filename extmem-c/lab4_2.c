@@ -35,7 +35,6 @@ void translateBlock(char* block_buf){
             str[j] = *(block_buf + i*ITEM_SIZE + j);
         }
         int item_attr1 = atoi(str);
-
         for (int j = 0; j < ATTR_SIZE; j++)
         {
             str[j] = *(block_buf + i*ITEM_SIZE + ATTR_SIZE + j);
@@ -50,19 +49,20 @@ void translateBlock(char* block_buf){
 //将一个缓冲区的block中的数据从数值表示变为ASCII表示(不占用额外内存空间)
 void reverseTranslateBlock(char* block_buf){
     char str[5];
-    memset(str, 0, 5);
+    
     int* int_block_buf = (int*)block_buf;
     for(int i=0; i<BLOCK_ITEM_NUM; i++){
         int item_attr1 = int_block_buf[2 * i];
         int item_attr2 = int_block_buf[2 * i + 1];
+        memset(str, 0, 5);
         itoa(item_attr1, str, 10);
-        for(int i=0; i<ATTR_SIZE; i++){
-            block_buf[i * ITEM_SIZE + i] = str[i];
+        for(int j=0; j<ATTR_SIZE; j++){
+            block_buf[i * ITEM_SIZE + j] = str[j];
         }
         memset(str, 0, 5);
         itoa(item_attr2, str, 10);
-        for(int i=0; i<ATTR_SIZE; i++){
-            block_buf[i * ITEM_SIZE + ATTR_SIZE + i] = str[i];
+        for(int j=0; j<ATTR_SIZE; j++){
+            block_buf[i * ITEM_SIZE + ATTR_SIZE + j] = str[j];
         }
     }
 }
@@ -84,6 +84,17 @@ int getNextBlockNum(char* block_buf){
     return atoi(str);
 }
 
+// 排序函数, 将两个元组进行比较, 判断item1是否应该在item2前面, 是就返回1否则返回0
+int compareItem(int* item1, int* item2){
+    if(item1[0] < item2[0]){
+        return 1;
+    }else if(item1[0] == item2[0] && item1[1] < item2[1]){
+        return 1;
+    }else{
+        return 0;
+    }
+}
+
 // 将缓冲区的8个块进行排序，排好序后依次写到TEMP_BLK磁盘块, 同时注意填写好块的最后8字节为下一块的块号
 void sortItemInBuffer(){
     char* blk_ptr = buf.data + 1;
@@ -97,7 +108,8 @@ void sortItemInBuffer(){
         for(int j=0; j < block_count * BLOCK_ITEM_NUM - 1 - i; j++){
             int* item1 = getItemPtr(j);
             int* item2 = getItemPtr(j+1);
-            if(item1[1] > item2[1]){    // 假设根据Y值排序
+            
+            if(!compareItem(item1, item2)){    // 假设根据Y值排序
                 swapItem(item1, item2);
             }
         }
@@ -114,6 +126,45 @@ void sortItemInBuffer(){
         blk_ptr += BLOCK_SIZE + 1;
     }
 }
+
+// 从第一遍扫描划分出的不同分组中得到下一个元组的指针
+int* getNextItem(char** group_blk_ptr, int* group_left_count, int group_count){
+    // 找到关键值最小元组
+    int* min_item = NULL;
+    int min_group = -1; //最小元组所在组号
+    for(int i=0; i<group_count; i++){
+        if(group_blk_ptr[i] == NULL){
+            continue;
+        }
+        int* item_ptr = (int*)(group_blk_ptr[i]) + (BLOCK_ITEM_NUM - group_left_count[i])*2;
+        // 假设按照(X, Y)中的Y属性排序
+        if(min_item == NULL){
+            min_item = item_ptr;
+            min_group = i;
+        }
+        else if(compareItem(item_ptr, min_item)){
+            min_item = item_ptr;
+            min_group = i;
+        }
+    }
+
+    group_left_count[min_group] -= 1;
+    if(group_left_count[min_group] == 0){   // 该分组的一块已处理完, 换该分组的下一块
+        int next_block_num = getNextBlockNum(group_blk_ptr[min_group]);
+        if(next_block_num != 0){
+            freeBlockInBuffer(group_blk_ptr[min_group], &buf);
+            group_blk_ptr[min_group] = readBlockFromDisk(next_block_num, &buf);
+            translateBlock(group_blk_ptr[min_group]);
+            group_left_count[min_group] = BLOCK_ITEM_NUM;
+        }else{
+            freeBlockInBuffer(group_blk_ptr[min_group], &buf);
+            group_blk_ptr[min_group] = NULL;
+        }
+    }
+
+    return min_item;
+}
+
 /*
 参数说明
 beg_blk_no: 要排序的磁盘块的起始地址
@@ -149,14 +200,14 @@ void sortItemInDisk(int beg_blk_no, int end_blk_no, int beg_res_blk_no){
         return;
     }
 
-    // 记录每组还剩多少元组没处理
+    // 记录每组还剩多少元组没处理 -- 该数组长度为4, 未超过10
     int* group_left_count = (int*)malloc(sizeof(int) * group_count);   
     memset((void*)group_left_count, 0, sizeof(int) * group_count);
     for(int i=0; i<group_count; i++){
         group_left_count[i] = BLOCK_ITEM_NUM;
     }
 
-    // 存放各组的缓冲区地址, 如果一组已经处理完则对应的指针为NULL
+    // 存放各组的缓冲区地址, 如果一组已经处理完则对应的指针为NULL -- 该数组长度为4, 未超过10
     char** group_blk_ptr = (char**)malloc(sizeof(char*) * group_count); 
     for(int i=0; i<group_count; i++){
         group_blk_ptr[i] = readBlockFromDisk(temp_block_beg_no + i*BUF_BLOCK_NUM, &buf);
@@ -168,53 +219,32 @@ void sortItemInDisk(int beg_blk_no, int end_blk_no, int beg_res_blk_no){
     int output_left_free = BLOCK_ITEM_NUM;              // 当前输出缓冲区还可写的空间
     while(processed_block_count < total_block_count){
         if(output_left_free == 0){  // 输出缓冲区已满, 必须将输出缓冲区刷新
+            reverseTranslateBlock(output_blk_ptr);
             if(processed_block_count < total_block_count - 1)
                 writeNextBlockNum(output_blk_ptr, beg_res_blk_no+1);
             else{
                 writeNextBlockNum(output_blk_ptr, 0);   // 最后一个输出缓冲区, next_block_num=0
             }
+            printf("注: 结果写入磁盘: %d\n", beg_res_blk_no);
             writeBlockToDisk(output_blk_ptr, beg_res_blk_no++, &buf);
             processed_block_count++;
             if(processed_block_count < total_block_count){
                 output_blk_ptr = getNewBlockInBuffer(&buf);
                 output_left_free = BLOCK_ITEM_NUM;
+            }else{
+                break;
             }
         }
         // while每循环一次输出缓冲区多一个元组(Item)
-
         // 找到关键值最小元组
-        int min_value = 0xfffffff;
-        int* min_item = NULL;
-        int min_group = -1; //最小元组所在组号
-        for(int i=0; i<group_count; i++){
-            if(group_blk_ptr[i] == NULL)
-                continue;
-            int* item_ptr = (int*)(group_blk_ptr[i]) + (BLOCK_ITEM_NUM - group_left_count[i])*2;
-            // 假设按照(X, Y)中的Y属性排序
-            if(item_ptr[1] < min_value){
-                min_value = item_ptr[1];
-                min_item = item_ptr;
-                min_group = i;
-            }
-        }
-
+        int* min_item = getNextItem(group_blk_ptr, group_left_count, group_count);
+        
         // 将最小元组写到输出缓冲区, 先不用按照ASCII码写，直接就按照值来写
         memcpy(output_blk_ptr + (BLOCK_ITEM_NUM - output_left_free)*ITEM_SIZE, min_item, ITEM_SIZE);
         output_left_free -= 1;
-
-        group_left_count[min_group] -= 1;
-        if(group_left_count[min_group] == 0){   // 该分组的一块已处理完, 换该分组的下一块
-            int next_block_num = getNextBlockNum(group_blk_ptr[min_group]);
-            if(next_block_num != 0){
-                freeBlockInBuffer(group_blk_ptr[min_group], &buf);
-                group_blk_ptr[min_group] = readBlockFromDisk(next_block_num, &buf);
-                group_left_count[min_group] = BLOCK_ITEM_NUM;
-            }else{
-                freeBlockInBuffer(group_blk_ptr[min_group], &buf);
-                group_blk_ptr[min_group] = NULL;
-            }
-        }
+        
     }
+    
 }
 
 void lab4_2(){
@@ -224,7 +254,10 @@ void lab4_2(){
         perror("Buffer Initialization Failed!\n");
         return -1;
     }
-
+    printf("关系R排序后输出到文件 301.blk 到 316.blk\n");
     sortItemInDisk(1, 16, 301);
+    printf("关系S排序后输出到文件 317.blk 到 348.blk\n");
     sortItemInDisk(17, 48, 317);
+    printf("IO读写一共%d次\n", buf.numIO);
+    freeBuffer(&buf);
 }

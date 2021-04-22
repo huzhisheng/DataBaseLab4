@@ -1,0 +1,5 @@
+双重for循环中的j被写成i
+
+translate中的j被写成i
+
+忘记translate

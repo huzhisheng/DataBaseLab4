@@ -2,7 +2,7 @@
 Buffer buf;
 int main(int argc, char **argv)
 {
-    lab4_1();
+    lab4_5_union();
     return 0;
 }
 

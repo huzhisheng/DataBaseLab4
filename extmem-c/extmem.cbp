@@ -45,6 +45,21 @@
 		<Unit filename="lab4_3.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="lab4_4.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="lab4_5_intersect.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="lab4_5_minus.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="lab4_5_test.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="lab4_5_union.c">
+			<Option compilerVar="CC" />
+		</Unit>
 		<Unit filename="test.c">
 			<Option compilerVar="CC" />
 		</Unit>

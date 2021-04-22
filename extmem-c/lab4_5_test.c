@@ -1,10 +1,10 @@
 #include "common.h"
 extern Buffer buf;
 
-// lab4_4.c 一遍扫描创建的有序单组会临时存放在1201开始的磁盘块
-// lab4_4.c 二遍扫描存储连接结果存放在从401开始的磁盘块
-static int temp_block_no = 1201;
-static int output_blk_no = 401;
+// lab4_5_test.c 一遍扫描创建的有序单组会临时存放在1501开始的磁盘块
+// lab4_5_test.c 二遍扫描存储连接结果存放在从701开始的磁盘块
+static int temp_block_no = 1601;
+static int output_blk_no = 801;
 
 // 将缓冲区的8个块进行排序，排好序后依次写到TEMP_BLK磁盘块, 同时注意填写好块的最后8字节为下一块的块号
 static void sortItemInBuffer(){
@@ -98,49 +98,18 @@ static void firstScan(int R_beg_no, int R_end_no, int S_beg_no, int S_end_no){
 }
 
 
-// 48块/8有6组, 每组占一个缓冲块, 再拿一块作为输出缓冲块, 还剩一块可以作为record块
-
-// 日志块, 用于解决连接操作时R表中出现某一关键属性值的元组数量过多(跨越了单个块)而导致重复读取数据块的问题
-
-// 日志块的作用比较难以解释, 大致就是假如: 
-// 属性X等于30的数据(30, y)在两个表中出现次数都很多, 这时如果要进行连接操作, 那么就必须以某一个表S的记录
-// (30, y1)作为基准，同时重复扫描另一个表R中的具有该关键值的记录(30, y)多次, 每扫描完一遍再从表S中获取下一个
-// 记录, 如果该记录依然是(30, y2)的形式, 那么就继续扫描表R中的所有(30, y)的数据, 而如果另一个表中(30, y)的元
-// 组数量也很多, 分布在多个块中, 那么就很难重复地去扫描, 因此我们可以把另一个表中这些元组的y数据记录在record缓
-// 冲区块中，因此当第二次需要扫描另一个块中所有的(30, y)元组时就可以直接在record块中查找这些y值即可。record块
-// 的容量是16个, 意思是最多可存储16个(30, y)元组的y值, 而这个容量在本次实验中已经够用了。
-static int record_left_free = 16;
-static char* record_blk_ptr = NULL;
-static int record_now_x = -1;   // 记录record块中现在记录的y值对应的元组(x, y)的x值
-static void recordAttr(int item_attr){
-    if(record_blk_ptr == NULL){
-        record_blk_ptr = getNewBlockInBuffer(&buf);
-    }
-
-    int* record_int_ptr = (int*)record_blk_ptr;
-    
-    if(record_left_free > 0 ){
-        record_int_ptr[16 - record_left_free] = item_attr;
-        record_left_free -= 1;
-    }
-}
-
-static void recordRefresh(){
-    record_left_free = 16;
-}
-
-static int recordGetAttr(int index_no){
-    int* record_int_ptr = (int*)record_blk_ptr;
-    return record_int_ptr[index_no];
-}
-
-
 // 输出缓冲区控制模块
 static char* output_blk_ptr = NULL;
 static int output_left_free = 0;
-static int output_item_count = 0;   // 统计总共连接结果
+static int output_item_count = 0;   // 统计集合运算后的元组数量
+static int last_output[2] = {0, 0}; // 结果要去重, 每次输出一个元组时要和上次的进行比较是否重复
 static void outputItem(int* item, int attr_count){
+    if((last_output[0] == item[0]) && (last_output[1] == item[1])){
+        return;
+    }
     output_item_count++;
+    last_output[0] = item[0];
+    last_output[1] = item[1];
     if(output_blk_ptr == NULL){
         output_blk_ptr = getNewBlockInBuffer(&buf);
         output_left_free = 14;  // 留8字节空间存放下一个块的块号
@@ -174,18 +143,6 @@ static void outputRefresh(){
     }
 }
 
-static void outputJoin(int attr_y){
-    // 所谓连接操作就是(x1, y1)和(x1, y2)组装成(x1, y1, x1, y2)即可
-    // 而所有的y1都已经记录在record块中
-    int item[4];
-    item[0] = record_now_x;
-    item[1] = attr_y;   // 根据实验PPT, 连接时S表的放在R表前面
-    item[2] = record_now_x;
-    for(int i=0; i<16-record_left_free; i++){
-        item[3] = recordGetAttr(i);
-        outputItem(item, 4);
-    }
-}
 
 // beg_res_blk_no代表存放结果的开始磁盘块号
 static void secondScan(){
@@ -221,44 +178,17 @@ static void secondScan(){
     // 第二遍扫描排序开始
     int item1[2];
     int item2[2];
-    int next_item1[2] = {0, 0};
     getNextItem(item1, group_blk_ptr1, group_left_count1, group_count1);  // R表的当前选出来元组
     getNextItem(item2, group_blk_ptr2, group_left_count2, group_count2);  // S表的当前选出来元组
-    while(item1[0] && item2[0]){   // 连接操作 -- 当R表或S表任何一个表扫描完时结束循环
+    while(item2[0]){   // 连接操作 -- 当R表或S表任何一个表扫描完时结束循环
         // 因为S表数量多于R表, 以S表为主
-        // 遇到一条S表中的记录(a, b)就去R表中查找所有(a, y)数据记录将y保存到record块中, 并连接后输出到输出块中, 再取S表中的下一条记录
-        if(item1[0] < item2[0]){
-            if(next_item1[0] > item1[0]){
-                item1[0] = next_item1[0];
-                item1[1] = next_item1[1];
-            }else{
-                getNextItem(item1, group_blk_ptr1, group_left_count1, group_count1);
-            }
-        }else if(item1[0] > item2[0]){
-            getNextItem(item2, group_blk_ptr2, group_left_count2, group_count2);
-        }else{
-            if(item1[0] != record_now_x){   // 取出R表中所有的当前x值对应的所有y值, 并存到record块中
-                recordRefresh();
-                record_now_x = item1[0];
-                while(item1[0] && item1[0] == item2[0]){
-                    recordAttr(item1[1]);
-                    getNextItem(next_item1, group_blk_ptr1, group_left_count1, group_count1);
-                    if(next_item1[0] == item1[0]){
-                        item1[0] = next_item1[0];
-                        item1[1] = next_item1[1];
-                    }else{
-                        break;
-                    }
-                }
-            }
-            outputJoin(item2[1]);
-            getNextItem(item2, group_blk_ptr2, group_left_count2, group_count2);
-        }
+        outputItem(item2, 2);
+        getNextItem(item2, group_blk_ptr2, group_left_count2, group_count2);
     }
     outputRefresh();
 }
 
-void lab4_4(){
+void lab4_5_test(){
     /* Initialize the buffer */
     if (!initBuffer(520, 64, &buf))
     {
@@ -267,7 +197,7 @@ void lab4_4(){
     }
     firstScan(1, 16, 17, 48);
     secondScan();
-    printf("总共连接%d次\n", output_item_count);
+    printf("S的集合(不重复元素)有%d个元素\n", output_item_count);
     printf("IO读写一共%d次\n", buf.numIO);
     freeBuffer(&buf);
 }

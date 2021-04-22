@@ -1,6 +1,7 @@
 #include "common.h"
 extern Buffer buf;
 
+// lab4_3.c 创建的索引文件存放在1101开始的磁盘块
 static int beg_index_blk_no = 1101;    //索引文件磁盘块起始号
 static int end_index_blk_no = 1101;
 
@@ -88,4 +89,5 @@ void lab4_3(){
         return -1;
     }
     searchTableByIndex(50, beg_index_blk_no, end_index_blk_no);
+    freeBuffer(&buf);
 }

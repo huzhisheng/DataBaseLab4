@@ -1,8 +1,9 @@
 #include "common.h"
 extern Buffer buf;
 
-#define TEMP_BLK_BEGIN 1001
-static int temp_block_no = TEMP_BLK_BEGIN;
+// lab4_2.c 一遍扫描创建的有序单组会临时存放在1001开始的磁盘块
+// lab4_2.c 二遍扫描的结果存放在301开始的磁盘块
+static int temp_block_no = 1001;
 
 // 交换两个元组的数据
 void swapItem(int* a, int* b){
@@ -88,7 +89,7 @@ int getNextBlockNum(char* block_buf){
 int compareItem(int* item1, int* item2){
     if(item1[0] < item2[0]){
         return 1;
-    }else if(item1[0] == item2[0] && item1[1] < item2[1]){
+    }else if(item1[0] == item2[0] && item1[1] <= item2[1]){
         return 1;
     }else{
         return 0;
@@ -128,7 +129,7 @@ void sortItemInBuffer(){
 }
 
 // 从第一遍扫描划分出的不同分组中得到下一个元组的指针
-int* getNextItem(char** group_blk_ptr, int* group_left_count, int group_count){
+void getNextItem(int* item, char** group_blk_ptr, int* group_left_count, int group_count){
     // 找到关键值最小元组
     int* min_item = NULL;
     int min_group = -1; //最小元组所在组号
@@ -148,6 +149,16 @@ int* getNextItem(char** group_blk_ptr, int* group_left_count, int group_count){
         }
     }
 
+    // 必须在这里就把min_item取到item中, 否则下面可能会将最小item所在组换到下一block
+    if(min_item){
+        item[0] = min_item[0];
+        item[1] = min_item[1];
+    }else{
+        item[0] = 0;
+        item[1] = 0;
+    }
+    
+
     group_left_count[min_group] -= 1;
     if(group_left_count[min_group] == 0){   // 该分组的一块已处理完, 换该分组的下一块
         int next_block_num = getNextBlockNum(group_blk_ptr[min_group]);
@@ -161,8 +172,7 @@ int* getNextItem(char** group_blk_ptr, int* group_left_count, int group_count){
             group_blk_ptr[min_group] = NULL;
         }
     }
-
-    return min_item;
+    return;
 }
 
 /*
@@ -217,6 +227,7 @@ void sortItemInDisk(int beg_blk_no, int end_blk_no, int beg_res_blk_no){
     // 将每组的第一块读取到缓冲区后开始进行第二遍扫描排序, 类似弹夹打子弹的思想
     char* output_blk_ptr = getNewBlockInBuffer(&buf);   // 为输出缓冲区申请一个内存块
     int output_left_free = BLOCK_ITEM_NUM;              // 当前输出缓冲区还可写的空间
+    int min_item[2];
     while(processed_block_count < total_block_count){
         if(output_left_free == 0){  // 输出缓冲区已满, 必须将输出缓冲区刷新
             reverseTranslateBlock(output_blk_ptr);
@@ -237,7 +248,7 @@ void sortItemInDisk(int beg_blk_no, int end_blk_no, int beg_res_blk_no){
         }
         // while每循环一次输出缓冲区多一个元组(Item)
         // 找到关键值最小元组
-        int* min_item = getNextItem(group_blk_ptr, group_left_count, group_count);
+        getNextItem(min_item, group_blk_ptr, group_left_count, group_count);
         
         // 将最小元组写到输出缓冲区, 先不用按照ASCII码写，直接就按照值来写
         memcpy(output_blk_ptr + (BLOCK_ITEM_NUM - output_left_free)*ITEM_SIZE, min_item, ITEM_SIZE);

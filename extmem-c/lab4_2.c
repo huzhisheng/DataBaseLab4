@@ -265,10 +265,14 @@ void lab4_2(){
         perror("Buffer Initialization Failed!\n");
         return -1;
     }
+    printf("\n==========================================\n");
+    printf("两阶段多路归并排序算法\n");
+    printf("==========================================\n\n");
+
     printf("关系R排序后输出到文件 301.blk 到 316.blk\n");
     sortItemInDisk(1, 16, 301);
     printf("关系S排序后输出到文件 317.blk 到 348.blk\n");
     sortItemInDisk(17, 48, 317);
-    printf("IO读写一共%d次\n", buf.numIO);
+    printf("\nIO读写一共%d次\n", buf.numIO);
     freeBuffer(&buf);
 }

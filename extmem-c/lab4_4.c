@@ -265,9 +265,12 @@ void lab4_4(){
         perror("Buffer Initialization Failed!\n");
         return -1;
     }
+    printf("\n==========================================\n");
+    printf("基于排序的连接操作算法\n");
+    printf("==========================================\n\n");
     firstScan(1, 16, 17, 48);
     secondScan();
-    printf("总共连接%d次\n", output_item_count);
-    printf("IO读写一共%d次\n", buf.numIO);
+    printf("\n总共连接%d次\n", output_item_count);
+    printf("\nIO读写一共%d次\n", buf.numIO);
     freeBuffer(&buf);
 }

@@ -1,64 +1,70 @@
 #include "common.h"
 
 extern Buffer buf;
-static int result_block_no = 100;
-static int result_item_count = 0;
+static int output_blk_no = 101;
 
-static unsigned char* res_blk = NULL;
-static unsigned char* res_blk_ptr = NULL;
-static int res_blk_left_free_item = 0;
+// 输出缓冲区控制模块, 因为不同题目的输出具体要求不同, 因此没有抽象成通用函数
+static char* output_blk_ptr = NULL;
+static int output_left_free = 0;
+static int output_item_count = 0;   // 统计集合运算后的元组数量
 
-// 元组写入输出缓冲区
-void writeItem(char* item_attr1, char* item_attr2){
-    if(res_blk == NULL){
-        res_blk = getNewBlockInBuffer(&buf);
-        res_blk_left_free_item = BLOCK_ITEM_NUM;
-        res_blk_ptr = res_blk;
+static void outputItem(int* item, int attr_count){
+    output_item_count++;
+
+    if(output_blk_ptr == NULL){
+        output_blk_ptr = getNewBlockInBuffer(&buf);
+        output_left_free = 14;  // 留8字节空间存放下一个块的块号
     }
-
-    if(res_blk_left_free_item == 0){
-        printf("注:结果写入磁盘:%d\n", result_block_no);
-        writeBlockToDisk(res_blk, result_block_no++, &buf);
-        res_blk = getNewBlockInBuffer(&buf);
-        res_blk_left_free_item = BLOCK_ITEM_NUM;
-        res_blk_ptr = res_blk;
+    int* output_int_ptr = (int*)output_blk_ptr;
+    for(int i=0; i<attr_count; i++){
+        output_int_ptr[14 - output_left_free] = item[i];
+        output_left_free -= 1;
+        if(output_left_free == 0){
+            printf("注: 结果写入磁盘: %d\n", output_blk_no);
+            writeNextBlockNum(output_blk_ptr, output_blk_no+1);
+            reverseTranslateBlock(output_blk_ptr);
+            writeBlockToDisk(output_blk_ptr, output_blk_no++, &buf);
+            output_blk_ptr = getNewBlockInBuffer(&buf);
+            memset(output_blk_ptr, 0, 64);
+            output_int_ptr = (int*)output_blk_ptr;
+            output_left_free = 14;  // 留8字节空间存放下一个块的块号
+        }
     }
-
-    strncpy(res_blk_ptr, item_attr1, ATTR_SIZE);
-    res_blk_ptr += ATTR_SIZE;
-    strncpy(res_blk_ptr, item_attr2, ATTR_SIZE);
-    res_blk_ptr += ATTR_SIZE;
-    res_blk_left_free_item -= 1;
-
-    result_item_count++;
 }
 
-void searchBlock(char* block_buf, int target_value){
-    char str[5];
-    str[5] = '\0';
+static void outputRefresh(){
+    if(output_left_free < 14){
+        printf("注: 结果写入磁盘: %d\n", output_blk_no);
+        writeNextBlockNum(output_blk_ptr, output_blk_no+1);
+        reverseTranslateBlock(output_blk_ptr);
+        writeBlockToDisk(output_blk_ptr, output_blk_no++, &buf);
+        output_blk_ptr = getNewBlockInBuffer(&buf);
+        memset(output_blk_ptr, 0, 64);
+        output_left_free = 14;  // 留8字节空间存放下一个块的块号
+    }
+}
 
-    for(int i=0; i<BLOCK_ITEM_NUM; i++){
-        for (int j = 0; j < ATTR_SIZE; j++)
-        {
-            str[j] = *(block_buf + i*ITEM_SIZE + j);
-        }
-        int item_attr = atoi(str);
-
-        for (int j = 0; j < ATTR_SIZE; j++)
-        {
-            str[j] = *(block_buf + i*ITEM_SIZE + ATTR_SIZE + j);
-        }
-        int item_attr2 = atoi(str);
-
-
-        if(target_value == item_attr){
-            printf("(X=%d, Y=%d)\n", item_attr, item_attr2);
-            writeItem(block_buf + i*ITEM_SIZE, block_buf + i*ITEM_SIZE + ATTR_SIZE);
+static void searchBlock(char* block_buf, int target_value){
+    translateBlock(block_buf);
+    int* blk_int_ptr = (int*)block_buf;
+    int item[2] = {0};
+    for(int i=0; i<7; i++){
+        if(blk_int_ptr[2*i] == target_value){
+            item[0] = blk_int_ptr[2*i];
+            item[1] = blk_int_ptr[2*i + 1];
+            printf("(X=%d, Y=%d)\n", item[0], item[1]);
+            outputItem(item, 2);
         }
     }
 }
 
 void searchLinear(int beg_blk_no, int end_blk_no, int target){
+    // 重置一下static变量, 因为lab4_1和lab4_3都会调用此函数, 如果不重置一些参数就会叠加
+    output_blk_no = 101;
+    output_blk_ptr = NULL;
+    output_left_free = 0;
+    output_item_count = 0;   // 统计集合运算后的元组数量
+
     for(unsigned int i=beg_blk_no; i<=end_blk_no; i++){
         char* block_buf = readBlockFromDisk(i, &buf);
         printf("读入数据块%d\n", i);
@@ -66,13 +72,10 @@ void searchLinear(int beg_blk_no, int end_blk_no, int target){
         freeBlockInBuffer(block_buf, &buf);
     }
 
-    if(res_blk_left_free_item != 7){
-        printf("注:结果写入磁盘:%d\n", result_block_no);
-        writeBlockToDisk(res_blk, result_block_no++, &buf);
-    }
-    printf("满足选择条件的元组一共%d个\n", result_item_count);
-    printf("IO读写一共%d次\n", buf.numIO);
-    freeBuffer(&buf);
+    outputRefresh();
+
+    printf("\n满足选择条件的元组一共%d个\n", output_item_count);
+    printf("\nIO读写一共%d次\n", buf.numIO);
 }
 
 // 基于线性搜索的关系选择算法
@@ -84,6 +87,10 @@ void lab4_1(){
         perror("Buffer Initialization Failed!\n");
         return -1;
     }
+
+    printf("==========================================\n");
+    printf("基于线性搜索的选择算法 S.C=50\n");
+    printf("==========================================\n\n");
     searchLinear(TABLE_R_MAX_BLOCK_NO+1, TABLE_S_MAX_BLOCK_NO, 50);
-    
+    freeBuffer(&buf);
 }

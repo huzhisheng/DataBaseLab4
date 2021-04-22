@@ -46,7 +46,7 @@ void searchTableByIndex(int target, int beg_index_blk_no, int end_index_blk_no){
     int right_blk_no = -1;
 
     while(1){
-        printf("读入索引磁盘块%d\n",index_blk_no);
+        printf("读入索引块%d\n",index_blk_no);
         char* blk_ptr = readBlockFromDisk(index_blk_no, &buf);
         int* int_ptr = (int*)blk_ptr;
         for(int i=0; i<BLOCK_ITEM_NUM; i++){
@@ -79,6 +79,11 @@ void lab4_3(){
         perror("Buffer Initialization Failed!\n");
         return -1;
     }
+
+    printf("\n==========================================\n");
+    printf("基于索引的关系选择算法 S.C=50\n");
+    printf("==========================================\n\n");
+
     // 先创建索引文件
     createIndexFileForTable(317, 348, beg_index_blk_no);
     // 创建完索引文件重置buffer

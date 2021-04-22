@@ -215,9 +215,12 @@ void lab4_5_minus(){
         perror("Buffer Initialization Failed!\n");
         return -1;
     }
+    printf("\n==========================================\n");
+    printf("集合差集算法\n");
+    printf("==========================================\n\n");
     firstScan(1, 16, 17, 48);
     secondScan();
-    printf("R和S的差集(S-R)有%d个元素\n", output_item_count);
-    printf("IO读写一共%d次\n", buf.numIO);
+    printf("\nR和S的差集(S-R)有%d个元素\n", output_item_count);
+    printf("\nIO读写一共%d次\n", buf.numIO);
     freeBuffer(&buf);
 }

@@ -17,6 +17,7 @@
 #define BUF_BLOCK_NUM 8
 #define BLOCK_ITEM_NUM (BLOCK_SIZE/ITEM_SIZE-1)
 
+
 // lab4_1.c
 void lab4_1();
 void searchLinear(int beg_blk_no, int end_blk_no, int target);

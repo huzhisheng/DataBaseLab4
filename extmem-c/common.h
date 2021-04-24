@@ -20,7 +20,7 @@
 
 // lab4_1.c
 void lab4_1();
-void searchLinear(int beg_blk_no, int end_blk_no, int target);
+void searchLinear(int beg_blk_no, int end_blk_no, int target, int output_blk_no);
 // lab4_2.c
 void lab4_2();
 void translateBlock(char* block_buf);

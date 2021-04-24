@@ -2,7 +2,7 @@
 extern Buffer buf;
 
 // lab4_2.c 一遍扫描创建的有序单组会临时存放在1001开始的磁盘块
-// lab4_2.c 二遍扫描的结果存放在301开始的磁盘块
+// lab4_2.c 二遍扫描的结果存放在201开始的磁盘块
 static int temp_block_no = 1001;
 
 // 交换两个元组的数据
@@ -269,10 +269,10 @@ void lab4_2(){
     printf("两阶段多路归并排序算法\n");
     printf("==========================================\n\n");
 
-    printf("关系R排序后输出到文件 301.blk 到 316.blk\n");
-    sortItemInDisk(1, 16, 301);
-    printf("关系S排序后输出到文件 317.blk 到 348.blk\n");
-    sortItemInDisk(17, 48, 317);
+    printf("关系R排序后输出到文件 201.blk 到 216.blk\n");
+    sortItemInDisk(1, 16, 201);
+    printf("关系S排序后输出到文件 217.blk 到 248.blk\n");
+    sortItemInDisk(17, 48, 217);
     printf("\nIO读写一共%d次\n", buf.numIO);
     freeBuffer(&buf);
 }

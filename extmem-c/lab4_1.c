@@ -58,9 +58,9 @@ static void searchBlock(char* block_buf, int target_value){
     }
 }
 
-void searchLinear(int beg_blk_no, int end_blk_no, int target){
+void searchLinear(int beg_blk_no, int end_blk_no, int target, int output_no){
     // 重置一下static变量, 因为lab4_1和lab4_3都会调用此函数, 如果不重置一些参数就会叠加
-    output_blk_no = 101;
+    output_blk_no = output_no;
     output_blk_ptr = NULL;
     output_left_free = 0;
     output_item_count = 0;   // 统计集合运算后的元组数量
@@ -91,6 +91,6 @@ void lab4_1(){
     printf("==========================================\n");
     printf("基于线性搜索的选择算法 S.C=50\n");
     printf("==========================================\n\n");
-    searchLinear(TABLE_R_MAX_BLOCK_NO+1, TABLE_S_MAX_BLOCK_NO, 50);
+    searchLinear(TABLE_R_MAX_BLOCK_NO+1, TABLE_S_MAX_BLOCK_NO, 50, 101);
     freeBuffer(&buf);
 }

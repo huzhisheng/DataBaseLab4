@@ -69,7 +69,7 @@ void searchTableByIndex(int target, int beg_index_blk_no, int end_index_blk_no){
 
     }
 find_ok:
-    searchLinear(left_blk_no, right_blk_no, 50);
+    searchLinear(left_blk_no, right_blk_no, 50, 301);
 }
 
 void lab4_3(){
@@ -85,7 +85,7 @@ void lab4_3(){
     printf("==========================================\n\n");
 
     // 先创建索引文件
-    createIndexFileForTable(317, 348, beg_index_blk_no);
+    createIndexFileForTable(217, 248, beg_index_blk_no);
     // 创建完索引文件重置buffer
     freeBuffer(&buf);
     if (!initBuffer(520, 64, &buf))
